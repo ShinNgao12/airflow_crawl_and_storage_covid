@@ -104,8 +104,8 @@ def tranform(yesterday):
 
 def send_mail(yesterday):
     messenger = Mail(
-        from_email='chirido1202@gmail.com',
-        to_emails='npthu1202@gmail.com',
+        from_email=os.getenv('FROM_EMAIL'),
+        to_emails=os.getenv('TO_EMAIL'),
         subject = f'Covid {yesterday}',
         html_content=f'<h2>THE SITUATION COVID-19 {yesterday}</h2>'
     )
@@ -123,14 +123,14 @@ def send_mail(yesterday):
     )
     messenger.attachment = attachedFile
 
-    try:    
-        print(os.getenv('SENDGRID_API_KEY'))                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+    try:                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
         sg = SendGridAPIClient(api_key=os.getenv('SENDGRID_API_KEY'))
         response = sg.send(messenger)
         print(response.status_code)                                                                 
         print(response.body)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
         print(response.headers)
         print(datetime.datetime.now())
+        
     except Exception as e:
         print(e.message)
 
