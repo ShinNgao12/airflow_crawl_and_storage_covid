@@ -1,17 +1,20 @@
+from bs4 import BeautifulSoup
+from dotenv import load_dotenv
 import pandas as pd
 import numpy as np
 import requests
-from bs4 import BeautifulSoup
+import logging
+import json
 import time
 import datetime
 import os
-from dotenv import load_dotenv
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import (Mail, Attachment, FileContent, FileName, FileType, Disposition)
+from pymongo import MongoClient
 import base64
 
 load_dotenv('/opt/airflow/.env')
@@ -34,10 +37,10 @@ def collect_yesterday(yesterday):
         source = soup.find('table', {'id' :"main_table_countries_yesterday"})
         data = source.tbody.text
 
-        # tách dữ liệu
+        # split data
         data = data.split('\n'*13)[-1]
 
-        # chuyển dữ liệu thành dictionary 
+        # convert to dictionary 
         lines = data.split('\n')
         idx = 0
         while (idx < len(lines)):
@@ -65,6 +68,7 @@ def collect_yesterday(yesterday):
             break
         time.sleep(0.5)
 
+    # convert to dataframe
     yesterday_df = pd.DataFrame(data_dict).set_index('#')
     yesterday_df['Date'] = yesterday
     yesterday_df.replace(' ', np.nan, inplace = True)
@@ -136,6 +140,25 @@ def send_mail(yesterday):
 
     return True
 
+def load_file(yesterday):
+    data = pd.read_csv(f'/opt/airflow/data/covid_{yesterday}.csv')
+    # connect to mongodb atlas
+    client = MongoClient(os.getenv('AIRFLOW_CONN_MONGO_DEFAULT'))
+    
+    # create database
+    database = client['Covid_19']
+
+    # insert data collection into database
+    collection = database[f'{yesterday}']
+    if collection in database.collection_names():
+        logging.info('this collection has existed in database.')
+        return True
+
+    collection.insert_many(data.to_dict(orient = 'records'))
+    logging.info('Load sucessfully.')
+
+    return True
+
 default_args = {
     'owner':'phuthu',
     'retries': 5,
@@ -143,7 +166,7 @@ default_args = {
 }
 
 with DAG(
-    dag_id = 'dag_collect_data_and_send_email_ver_final',
+    dag_id = 'dag_ETL_into_mongodb_v1',
     start_date = datetime.datetime(2022,8,1,0),
     schedule_interval = '@daily',
     default_args = default_args
@@ -166,6 +189,12 @@ with DAG(
         op_kwargs={"yesterday" : '{{ yesterday_ds }}'}
     )
 
-    crawl_task >> transform_task >> send_email
+    load_mongo = PythonOperator(
+        task_id = 'load_into_mongodb',
+        python_callable = load_file,
+        op_kwargs={"yesterday" : '{{ yesterday_ds }}'}
+    )
+
+    crawl_task >> transform_task >> [load_mongo, send_email]
 
 
