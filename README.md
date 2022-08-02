@@ -16,4 +16,10 @@
     - docker exec -it <container_id_airflow_scheduler> bash
     - pip3 install html5 python-dotenv
     - exit
-- step 3: Log in airflow account in webserver and run dag.
+- step 3: Log in airflow account in webserver and run dag
+#### I read some suggestions on the website, I decide to build an dockerfile and update docker-compose.yml.
+- step 1 : build a new dockerfile
+    docker build . --tag <new_name>
+- step 2 : replace image in docker-compose.yml file by new name image that you have built.
+- step 3 : run all container in docker-composes
+    docker-compose up -d
